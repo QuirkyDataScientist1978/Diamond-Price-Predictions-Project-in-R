@@ -1,0 +1,677 @@
+---
+title: "Final Project - DATS 6101 - Intro to Data Science"
+author: "Aaron A. Gauthier"
+date: "June 27, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+My Question: What is the predicted price of a diamond based on the attributes of cut, color, clarity and carat? Is our prediction close?
+```{r}
+
+#I used the Diamonds dataset from the following link: https://www.kaggle.com/shivam2503/diamonds. After downloading the dataset, I decided to answer the the following question: What is the predicted price of a diamond based on the attributes of cut, color, clarity and carat? What is the accuracy of the prediction? Additionally, I decided to to answer additional questions in order to learn some additional methods / processes and code that may be of use in the future. 
+
+#Lots of research and partial projects have been completed on certain aspects of the diamonds dataset. I could not find one full project that brought the diamonds dataset through the entire data science lifecycle. I decided to pick this dataset so that I could learn and leverage others work. I learn the most when I follow someone's thought process and learn from them. I took some ideas from multiple posts / projects / homeworks and cited their respective work within this project. I learned a lot about how to think about this data set that I will apply to other datasets in the future. I also learned about some really great ways to plot information that I may not have found otherwise if I hadn't decided to basically take on the mindset of find some sort of project(s) and improve upon it. I believe the following project is much more complete than those that came before and shows alternative methods and insights into the data. 
+
+#I also incorporated additional plots, graphs and developed a methodology that I believe closely follows the start of a Data Science methodology. Following the "Epicycles of Analysis", I based my methodology on the following core activities and steps. 
+
+#Lines 21-36 was taken from the following website: https://gohighbrow.com/the-data-analysis-epicycle/. 
+
+#There are five core activities of data analysis:
+
+#1. Stating and refining the question
+#2. Exploring the data
+#3. Building formal statistical models
+#4. Interpreting the results
+#5. Communicating the results
+
+#These five activities can occur at different time scales; for example, you might go through all five in the course of a day but also deal with each (for a large project) over the course of many months. Although there are many different types of activities that you might engage in while doing data analysis, every aspect of the entire process can be approached through an iterative process that we call the epicycle of data analysis. More specifically, for each of the five core activities, it is critical that you engage in the following steps:
+
+#1. Setting expectations,
+#2. Collecting information (data), comparing the data to your expectations, and if the expectations don't match,
+#3. Revising your expectations or fixing the data so your data and your expectations match. As you go through every stage of an analysis, you will need to go through the epicycle to continuously refine your question, your exploratory data analysis, your formal models, your interpretation, and your communication.
+
+#The repeated cycling through each of these five core activities that is done to complete a data analysis forms the larger circle of data analysis.
+
+#I also learned the following from this project and am starting to develop my own methodology to follow (as maybe a sub-methodology) for me to apply to my data analysis in the future or maybe they are better defined design principles / considerations:
+
+#1. I learned to look for mathematical relationships where they exist! In this example, 
+
+#I never would have equated Carat Weight to Volume in three dimensional space. Volume is measured in cubic units. This mathematical relationship is very important to know and understand in developing a model. I have learned to look at, think about and consider any mathematical relationships where they exist especially when dealing with physical dimensions in three dimensional space.
+
+#2. I learned to first develop my plan for Exploratory Data Analysis (EDA) and adjust it accordingly. 
+
+#3. I learned to truly think about how to visually represent the data in such a way that it communicates the story of the data. It should be immediately obvious what you are communicating through your visual representations of the data.
+
+#4. I learned to truly think about and disect what the results means and what could explain the possible deviations to the model. Meaning what additional factors may account for the model not being accurate or possibly how to improve upon the model and make it more accurate. 
+
+#In the diamonds prediction phase, I noticed some intersting observations when tryin to forecast a branded diamond with the model versus an unbranded diamond in the model. The branded diamond was not within the limits of the model. The unbranded diamond was within the limits of the model. I learned to always be thinking about, "What conclusions can you draw from that information?"
+
+#Lastly, what additional information or analysis might improve my model results or work to control limitations. I think more specialized domain information could help as well as a better understanding of how to predict with Lasso and GLMNET models. I was not able to get to this point in the project which was my goal. I think to gain deeper insight into the data, some sort of customer survey might be needed to gain insight into the data. 
+
+#Libraries for use in this project
+library(corrplot)
+library(ggplot2)
+library(ResourceSelection)
+library(pROC)
+library(pscl)
+library(ISLR)
+library(dplyr)
+library(ROCR)
+library(glmnet)
+library(plotmo)
+library(gradDescent)
+library(caret)
+library(gridExtra)
+library(scales)
+library(GGally)
+library(tidyr)
+library(MASS)
+library(gplots)
+library(hexbin)
+library(colorspace)
+library(modelr)
+library(leaps)
+library(Hmisc)
+library(xkcd)
+library(xkcdcolors)
+library(XKCDdata)
+library(memisc)
+library(lattice)
+library(car)
+library(forcats)
+library(reshape)
+library(plyr)
+library(plotly)
+library(foreign)
+library(RColorBrewer)
+library(glmnet)
+library(nnet)
+library(mlogit)
+library(Matrix)
+library(ggcorrplot)
+library(tinytex)
+
+#Let's set our working directory
+setwd("C:/Users/Gaming_DataScience/OneDrive/Documents/R")
+
+diamonds <- read.csv("diamonds.csv")#read diamonds file
+head(diamonds)#display some of the data
+str(diamonds)#data frame by observations and variables
+
+sum(is.na(diamonds)) # check the values to see if I have any NAs in my data and it doesn't seem to indicate that I do. 
+
+which(is.na(diamonds)) # check to see the locations of any NA values in my data. It says there are none! Yea, so our data set appears to be clean. 
+
+plot(diamonds$price) #plotting our dependent variable price - Looks like mess - very strange - I think this type of plot has to do with the ordinal factor variables. There appears to be an exponential relationship based on price? But how, what contributes to this? I hope further EDA will determine this or make it more apparent!? It seems like there is a second strange, but not as pronounced exponential relationship; followed by a flat relationship? Really strange, wish I knew what this was attributed too...
+
+data(diamonds)
+summary(diamonds)
+dim(diamonds)#this will give us the number of observations and variables. Taken from www.rpubs.com/amelij/EDA_lesson3
+```
+
+
+```{r}
+
+samp_index = sample(1:nrow(diamonds), 30, replace = FALSE) # Creating a random sample to look at the data set.
+samp_index
+diamonds[samp_index,] # Taken from youtube video https://www.youtube.com/watch?v=GgthMorTsn0
+
+#Lets take a closer look at the numberic variables. Taken from youtube video https://www.youtube.com/watch?v=GgthMorTsn0
+str(diamonds$carat)
+levels(diamonds$carat)
+plot(diamonds$carat) # Wow, looks like a messy distribution - let's hope I can prove it's correlated to the price. This appears to be correlated with the plot I did above with the diamond price. Again, a very strange graph, but not as pronounced an exponential relationship. You can see how the first graph I did comes out like this, but I still can't explain it. 
+
+#Lets take a closer look at the numeric variables. Taken from youtube video https://www.youtube.com/watch?v=GgthMorTsn0
+str(diamonds$depth)
+levels(diamonds$depth)
+plot(diamonds$depth) #Interesting plot, depth is essentially a straight line with little change. Does this mean there is no correlation? Maybe we should exclude this variable? 
+
+#Lets take a closer look at the numeric variables; Taken from youtube video https://www.youtube.com/watch?v=GgthMorTsn0
+str(diamonds$table)
+levels(diamonds$table)
+plot(diamonds$table)#Looks like this variable should possibly be removed from any model, it's flat! 
+
+#Lets take a closer look at the numeric variables. Taken from youtube video https://www.youtube.com/watch?v=GgthMorTsn0
+str(diamonds$price)
+levels(diamonds$price)
+plot(diamonds$price) #Again, it's a strange graph, but shows there is an exponential relationship. It's consistent with the first plot we did for the data set above. 
+
+#Lets take a closer look at the other ordinal factor variables. Taken from youtube video https://www.youtube.com/watch?v=GgthMorTsn0
+str(diamonds$cut)
+levels(diamonds$cut)
+plot(diamonds$cut) #There's more ideal cut diamonds than anything else - my guess these are the best sellers! (i.e. very popular choice amongst consumers)
+
+#Lets take a closer look at the other ordinal factor variables. Taken from youtube video https://www.youtube.com/watch?v=GgthMorTsn0
+str(diamonds$color)
+levels(diamonds$color)
+plot(diamonds$color)#There's less of the lower quality diamonds as we would expect! Overall there are less I & J diamonds (lesser quality) than the higher quality diamonds. There are also less D color diamonds. There seems to be a close to even distribution between diamonds that are colored between E, F, and G. This may mean that customer demand is most for diamonds of color E, F and G. 
+
+#Lets take a closer look at the other ordinal factor variables. Taken from youtube video https://www.youtube.com/watch?v=GgthMorTsn0
+str(diamonds$clarity)
+levels(diamonds$clarity)
+plot(diamonds$clarity)#There's more of the lesser quality diamonds as we would expect! As the quality increases, the overall demand appears to decrease. I think this is due to the fact that only people who have more money can afford to buy the higher priced diamonds. That would make sense, since there are less people with more money overall that can afford a more expensive diamond. 
+```
+
+
+```{r}
+
+#Lets take a closer look at the variables and their correlations
+#Lets look the relationship between carat and price the two continuous variables
+data(diamonds)
+names(diamonds)#I excluded Depth and Table from the data set due to the fact that the graphs were essentially a flat line distribution of the data. I did not see a reason to include them. I also excluded X, Y, and Z which are the three dimensional measurements that go into mathematically making the formulas for Depth and Table. The Depth and Table values are derived from an equation that include the variable measurements x, y and z. 
+
+ggplot(data=diamonds) + geom_histogram(binwidth = 500, aes(x=diamonds$price)) + ggtitle("Diamond Price Distribution") + xlab ("Diamond Price in US Dollars") + ylab("Frequency") + theme_classic() #Taken from https://rpubs.com/ameliji/EDA_Lesson3
+#This is a long tail distribution. It has a very high concentration of obversations below US $5,000 mark. Why is this significant? It seems to show that there is a demand for the "higher quality diamonds." The demand shows there are less people who are willing to pay more for such higher quality diamonds. Supports my comments on the previous graphs. 
+
+#Now I am curious about the mean price of the diamonds. What is the mean?
+
+mean(diamonds$price) # Mean is $3,932.80. This seems to be pretty low, but the bulk of the data is before $5,000 based on looking at the graphs. So this result would make sense. This value may become more valuable when we are comparing the models later. I can use this to turn price into a binary result. I will verify this later with a box plot of the mean price for the diamonds data set. Could this possibly be a differentiator between high quality and low quality diamonds? I think this is a moving target and preference amongst customers, but using the mean may make sense as an established cut line.  
+
+#Let's take a look at the Diamond Price Distribution by Cut
+ggplot(data=diamonds) + geom_histogram(binwidth=500, aes(x=diamonds$price)) + ggtitle("Diamond Price Distribution by Cut") + xlab("Diamond Price U$") + ylab("Frequency") + theme_classic() + facet_wrap(~cut) #Taken from https://rpubs.com/ameliji/EDA_Lesson3
+#The bulk of the data seems to be distributed in the Premium and Ideal category diamonds. This seems to point to as the most popular categories amongst diamonds buyers for this attribute of Cut. 
+
+#I am curious about what is the highest priced diamond?
+subset(diamonds, price == max(price)) # Taken from https://rpubs.com/ameilij/EDA_lesson3
+#Should return the highest priced diamond - It's a 2.29 Carat, Premium Cut, Color I, clarity VS2 with a depth of 60.8, a table of 60 and a price of $18,823.
+
+#I wonder what the least expensive diamond is?
+subset(diamonds, price == min(price)) #Taken from https://rpubs.com/ameilij/EDA_lesson3 
+# It's a tie between two diamonds for $326. 
+
+#Let's take a look at the Diamond Price Distribution by Color
+ggplot(data=diamonds) + geom_histogram(binwidth=500, aes(x=diamonds$price)) + ggtitle("Diamond Price Distribution by Color") + xlab("Diamond Price U$") + ylab("Frequency") + theme_classic() + facet_wrap(~color) #Taken from https://rpubs.com/ameliji/EDA_Lesson3
+#This plot is in line with previous  plots. It is separated by "bins". It's interesting to see the bins broken out by distribution. 
+
+#Let's take a look at the Diamond Price Distribution by Clarity
+ggplot(data=diamonds) + geom_histogram(binwidth=500, aes(x=diamonds$price)) + ggtitle("Diamond Price Distribution by Clarity") + xlab("Diamond Price U$") + ylab("Frequency") + theme_classic() + facet_wrap(~clarity) #Taken from https://rpubs.com/ameliji/EDA_Lesson3
+
+ggplot(data=diamonds, aes(x=carat, y=price)) +
+  # get rid of top percentile as they could skew the data
+  scale_x_continuous(lim=c(0,quantile(diamonds$carat,0.99))) +
+  scale_y_continuous(lim=c(0,quantile(diamonds$price,0.99))) +
+  geom_point(fill=I('#dd3333'), color= I("black"), aes(alpha=1/10),shape=21) +
+  stat_smooth(method='lm')# Taken from https://rpubs.com/taylorwhite/diamondPricing
+#It appears that there is a positive, linear relationship between price and carat weight. We need to further investigate this...
+
+ggplot(data=diamonds, aes(x=carat, y=price)) +
+  # get rid of top percentile
+  scale_x_continuous(lim=c(0,quantile(diamonds$carat,0.99))) +
+  scale_y_continuous(lim=c(0,quantile(diamonds$price,0.99))) +
+  geom_point(color=I('#dd3333'),alpha=1/10) +
+  stat_smooth(method='lm') +
+  ggtitle("Linear Fit of Carat Weight to Price") + 
+  theme_xkcd()#Taken from https://rpubs.com/taylorwhite/diamondPricing - It's a cool plot. A bit different from the one before, but learning lots of different methods on how to plot through this project. I like learning new methods of plotting on this project. Though, I do like the previous plot better than this one. Both plots show the same thing, just in a slightly different way. 
+
+set.seed(42) #Yep, inserting the "cool data science seed thing to do #42" :) Taken from https://rpubs.com/anthonycerna/diamondspredictions
+diamond_samp <- diamonds[sample(1:length(diamonds$price), 25000), ] #Looking at the first 25,000 diamonds
+ggpairs(diamond_samp, outlier.shape = I('.')) #Taken from https://rpubs.com/taylorwhite/diamondPricing 
+
+#The diagnol plots for color, clarity, depth and possibly table seem to be normally distributed. The x, y, and z variable appear to be highly correlated with each other, which makes perfect sense since these variables are what makes up the depth and table of a diamond or rather x, y and z are the diamond measurements / dimensions. This makes total sense! When you look at price versus the x, y and z variables there is a logarithmic relationship. This becomes hard to analyze, so either I will need to use the logit function / link for a glm or I need to figure out a way to make the log function linear. I need to look at my mathematics books to figure this one out - it's been a while! 
+
+#Looking back at previous notes, it appears that carat versus price is an exponential relationship. Part of the reason this could be is if we use our domain knowledge about diamonds, then we know that the higher quality diamonds are very rare to find. Hence a more logarithmic function or rather they become so rare, that there are only a few that are available. This seems to make sense because the variables xyz contribute to the carat weight of a diamond (i.e. xyz in three dimensions is volume of a function). What does this suggest? After look through some mathematics books its highly possible that the cubed root of the carat weight might be of help in our model. We will have to remember to carry this forward! 
+```
+
+
+```{r}
+
+#Let's look at some boxplots now
+
+#Diamond Price According to Cut
+ggplot(diamonds, aes(factor(cut), price, fill=cut)) + geom_boxplot() + ggtitle("Diamond Price according Cut") + xlab("Type of Cut") + ylab("Diamond Price in US Dollars") #Taken from https://rpubs.com/ameliji/EDA_lesson3 - I modified the code.
+#It doesn't appear that Cut is a good way to determine the quality or whether or not a diamond will be expensive. Might want to exclude this variable from the model - think about it. But if we exclude it, it would be the three C's instead of the four C's. If cut does not seem to affect the price very much, then why is it included? Maybe it's a marketing thing or branding effect? It's yet another way to make folks feel like they are picking a higher quality diamond? Maybe it's a "feel better" about your purchase metric? It's interesting why it's included when it does not seem to affect price that much. 
+
+#Diamond Price According to Color
+ggplot(diamonds, aes(factor(color), price, fill=color)) + geom_boxplot() + ggtitle("Diamond Price according Color") + xlab("Type of Color") + ylab("Diamond Price in US Dollars") #Taken from https://rpubs.com/ameliji/EDA_lesson3 - I modified the code.
+#Color looks like it makes a difference in the quality or whether or not a diamond will be expensive - as we would expect. Color is a meaningful variable as compared to cut. 
+
+#Diamond Price According to Clarity
+ggplot(diamonds, aes(factor(clarity), price, fill=clarity)) + geom_boxplot() + ggtitle("Diamond Price according Clarity") + xlab("Type of Clarity") + ylab("Diamond Price in US Dollars") #Taken from https://rpubs.com/ameliji/EDA_lesson3 - I modified the code.
+#Looks like this matters. Clarity is a meaningful variable as compared to cut. 
+
+#Lets take a look at the price per Carat of diamonds across the various Colors using a boxplot. 
+ggplot(diamonds, aes(factor(color), (price/carat), fill=color)) + geom_boxplot() + ggtitle("Diamond Price per Carat according Color") + xlab("Color") + ylab("Diamond Price per Carat in US Dollars")#Taken from https://rpubs.com/ameliji/EDA_lesson3 - I modified the code.
+
+#After looking through these plots, it looks like the lesser quality diamonds seem to be more expensive? What explains this? I think the Carat weight comes into play here. Carat weight seems to be the single most determining factor in deciding the price of a diamond. 
+
+#Lets try to do some more helpful visualizations for our project to really pack in the power of what our data is saying
+ggplot(data = diamonds) + geom_bar(mapping = aes(x = cut, fill = clarity)) + ggtitle("Cut Stratified with Clarity Differentiated Cut Bins") + xlab("Cut") + ylab("Count") #Wow, I love this and it's a great example of how to pack in as much information as possible to make a meaning visualization. I love how I can see the clarity within the categorical variable of cut (i.e. the different buckets of cut) #Code was taken from R for Data Science by Hadley Wickham and Garrett Grolemund, page 27. 
+
+#This graph is useful in showing by types of Cut, what the distribution is by clarity. As we would expect, as the quality increases in clarity, it gets harder to find or becomes more rare. Though it's interesting that this graph could possibly show that maybe jewelers who cut diamonds target an ideal cut for all diamonds, but maybe for some reason if it doesn't work out to be an ideal cut, then it becomes a lesser cut? This seems to make sense and is a likely conclusion, however I can't prove it. It's anecdotal for now...
+```
+
+
+```{r}
+
+#Let's look at these characteristics with a different plot to see what we can determine for a best model fit? Is it linear or logarithmic? The below code (lines 248- 301) is taken from pages 378-383 in R for Data Science by Hadley Wickham and Garrett Grolemund.
+
+ggplot(diamonds, aes(carat, price)) + geom_hex(bins = 50) + xlab("Carat") + ylab("Price in US Dollars") + ggtitle("Price Relative to Carat Weight") #Looks like Carat is the most important factor in deciding price, but lets do the same with the other attributes / characteristics - this also looks to be exponential in nature as opposed to linear. 
+
+#Lets look at diamonds smaller than 2.5 Carats as that seems to be the cut off score for most of the data.
+
+#Using the log function we are transforming the data from logarithmic to that of a linear pattern which makes it easier to work with the data. 
+diamonds2 <- diamonds %>%
+  filter(carat <= 2.5) %>%
+  mutate(lprice = log2(price), lcarat = log2(carat)) # Got this from the book example from R for Data Science by Hadley Wickham and Garrett Grolemund, page 378.
+
+ggplot(diamonds2, aes(lcarat, lprice)) + geom_hex(bins = 50) + ggtitle("Log Transformation of Price versus Carat Weight") + xlab("Log2 of Carat Weight") + ylab("Log2 of Price") #Plots the linear relationsip between the variables - so taking the Log2 gives us a linear distribution of Carat Weight versus Price. 
+
+# Got this from the book example from R for Data Science by Hadley Wickham and Garrett Grolemund, page 378.
+
+#Let's look at the correlation plot a bit. Price and Carat Weight. 
+ggcorr(diamonds[,1:10]) #Taken from https://briatte.github.io/ggcorr/. Carat to price seems to be strongly correlated as we thought. Let's build a simple model. 
+
+model_diamonds <- lm(lprice ~ lcarat, data = diamonds2) #Created linear model - simple - starting off with carat first, we will get more complex later. Let's start with price as the predictor value and carat as an independent variable since it seems there is a strong linear relationship between the two variables. 
+summary(model_diamonds) #Our Adjusted R-squared: 0.9334 which validates that carat weight is a strong determinant of price. This relationship will be very important for our predictions later on. 
+
+model_diamonds1 <- glm(lprice ~ lcarat, data = diamonds2) #Created generalized linear model- starting off with carat first, we will get more complex later
+summary(model_diamonds1) #This output shows a very high AIC: 47,654. Is this model off? Let's plot the line to see how it fits. 
+
+#Let's look at what the models tell us about the data
+
+#Linear Model First
+grid <- diamonds2 %>%
+  data_grid(carat = seq_range(carat, 20)) %>%
+  mutate(lcarat = log2(carat)) %>%
+  add_predictions(model_diamonds, "lprice") %>%
+  mutate(price = 2 ^ lprice)
+ #Got this from the book example (Lines 274-305) from R for Data Science by Hadley Wickham and Garrett Grolemund, page 379.
+
+
+ggplot(diamonds2, aes(carat, price)) + geom_hex(bins = 50) + geom_line(data = grid, color = "red", size = 1) #Looks like a pretty good fit for the simple linear model
+
+#Generalized Linear Model Next 
+grid1 <- diamonds2 %>%
+  data_grid(carat = seq_range(carat, 20)) %>%
+  mutate(lcarat = log2(carat)) %>%
+  add_predictions(model_diamonds1, "lprice") %>%
+  mutate(price = 2 ^ lprice)
+
+ggplot(diamonds2, aes(carat, price)) + geom_hex(bins = 50) + geom_line(data = grid, color = "green", size = 1) # Plots look the same for the glm
+
+#Lets look at the residuals which will help us verify our linear relationship
+
+#Starting with linear model first
+diamonds2 <- diamonds2 %>%
+  add_residuals(model_diamonds, "lresid")
+
+ggplot(diamonds2, aes(lcarat, lresid)) + geom_hex(bins = 50) #This plot seems to indicate that larger diamonds seem to be cheaper than less expensive diamonds overall. This is an interesting find! A residual closer to 1 means that the diamond price is almost double that of a diamond that has a -1 residual. So I think this means that you get more value for your money if you buy a larger diamond. I hope this to be the case! Gents, if I interpreted this correctly, you may just want to buy the larger diamond so you get more "value" from your purchase. Your money goes further if you buy a larger diamond. Very interesting find! I was not expecting this best value proposition. 
+
+#Let's redo our plots using residuals instead of price
+ggplot(diamonds2, aes(cut, lresid, fill = color)) + geom_boxplot() #Cut does not seem to affect price that much as it increases slightly, but not by much. Does not look like it affects the price much!
+
+ggplot(diamonds2, aes(color, lresid, fill = color)) + geom_boxplot() #Color seems to affect price. As the quality decreases, so does the price!
+
+ggplot(diamonds2, aes(clarity, lresid, fill = color)) + geom_boxplot() #There looks like a strong residual correlation to price for the attribute clarity! The higher the quality of the diamond in terms of clarity, the higher the price!
+
+ggplot(diamonds2, aes(carat, lresid, fill = color)) + geom_boxplot() # Aughh, this is an ugly chart. Better to use the hex bins chart from earlier. This looks horrible! I wonder what happened here? #Meaningless!
+
+#Perfect! This shows the relationship we expect. As the quality of the diamond increases then so does the relative price.Taken from page 381 in R for Data Science by Hadley Wickham and Garrett Grolemund.
+
+#A residual of -1 indicates that lprice was 1 unit lower than a prediction based solely on its weight. This means that the residual values of -1 are half the predicted price, and residuals with value 1 are twice the predicted price. 
+
+#Lets now move to a more complex model
+```
+
+
+```{r}
+#More complex model to evaluate all of the characteristics or attributes of a diamond that affects its price
+
+ggplot(aes(x=carat, y=price), data=diamonds) +
+  geom_point(fill=I("#F79420"), color=I("black"), shape=21) +
+  scale_x_continuous(lim = c(0, quantile(diamonds$carat, 0.99)) ) +
+  scale_y_continuous(lim = c(0, quantile(diamonds$price, 0.99)) ) +
+  ggtitle("Diamonds: Price vs. Carat") #https://rpubs.com/anthonycerna/diamondspredictions
+
+#Wow, this is a really cool plot! If you look closely at the plot it shows the supply / demand side of the diamond business. That's why at certain Carat Weights the plots look sort of "segmented" for lack of a better term. Customers who are looking for less expensive diamonds are more sentive to price versus someone looking for a more expensive diamond. This makes perfect sense, folks with more money aren't worried about price as much - I am sure they still worry, but not like someone who can't afford a more expensive diamond. The market for larger diamonds is not as competitive, so it makes sense that we see a larger variance and price increase. 
+
+#Let's remember that earlier it was stated that the volume of a diamond carat = xyz or measured in units cubed in three dimensional space. So hence this is why we take the cubed root of our carat function. Here's how we do it.....
+cuberoot_trans = function() trans_new('cuberoot', 
+                                      transform = function(x) x^(1/3),
+                                      inverse = function(x) x^3) #taken from https://rpubs.com/anthonycerna/diamondspredictions
+
+#Now that we executed the function - Lets plot it! taken from https://rpubs.com/anthonycerna/diamondspredictions
+ggplot(aes(carat, price), data = diamonds) + 
+  geom_point() + 
+  scale_x_continuous(trans = cuberoot_trans(), limits = c(0.2, 3),
+                     breaks = c(0.2, 0.5, 1, 2, 3)) + 
+  scale_y_continuous(trans = log10_trans(), limits = c(350, 15000),
+                     breaks = c(350, 1000, 5000, 10000, 15000)) +
+  ggtitle('Price (log10) by Cube-Root of Carat')
+#This is almost linear - I think about as close as we'll get! 
+
+#Let's look at the above plot but with some added color and of course let's plot it with the clarity "bins" for the diamonds, just to see what it gives us...
+ggplot(aes(x = carat, y = price, color=clarity), data = diamonds) + 
+  geom_point(alpha = 0.5, size = 1, position = 'jitter') +
+  scale_color_brewer(type='div', 
+                     guide=guide_legend(title='Clarity',
+                                        reverse=T,
+                                        override.aes=list(alpha=1, size=2))) +  
+  scale_x_continuous(trans = cuberoot_trans(), 
+                     limits = c(0.2, 5),
+                     breaks = c(0.2, 0.5, 1, 2, 3, 4, 5)) + 
+  scale_y_continuous(trans = log10_trans(), 
+                     limits = c(350, 30000),
+                     breaks = c(350, 1000, 5000, 10000, 15000, 20000, 25000, 30000)) +
+  ggtitle('Price (log10) by Cube-Root of Carat and Clarity') #This was taken from https://rpubs.com/anthonycerna/diamondspredictions
+#Wow, this tells us a lot about the diamond business as it relates to price and the distribution of the various diamonds. The larger the diamond more it seems from our data the quality available seems to decrease as evidenced by the lack of IF at higher levels. It's very clear the IF for Internally Flawless are the most expensive diamonds (as expected) and the I and SI2 diamonds are the least expensive. This is in line with what we expect based on our domain knowledge of diamonds. 
+
+#I really like this plot. I am glad I picked this data set and researched the various plots and found good examples. This is something I will throw in my "kit bag" for later use! I never would have learned this if I had not researched these different plots. This will come in useful for other factor variable data sets. As an aside, I need to learn how to manipulate the colors found in this graph. 
+
+#Lets do the same plot, but for cut to see if we see a variance in the price.
+
+ggplot(aes(x = carat, y = price, color = cut), data = diamonds) + 
+  geom_point(alpha = 0.5, size = 1, position = 'jitter') +
+  scale_color_brewer(type = 'div',
+                     guide = guide_legend(title = 'Cut', 
+                                          reverse = T,
+                                          override.aes = list(alpha = 1, 
+                                                              size = 2))) +  
+  scale_x_continuous(trans = cuberoot_trans(), limits = c(0.2, 5),
+                     breaks = c(0.2, 0.5, 1, 2, 3, 4, 5)) + 
+  scale_y_continuous(trans = log10_trans(), limits = c(350, 30000),
+                     breaks = c(350, 1000, 5000, 10000, 15000, 20000, 25000, 30000)) +
+  ggtitle('Price (log10) by Cube-Root of Carat and Cut') #This was taken from https://rpubs.com/anthonycerna/diamondspredictions
+#Looking at this data, it seems that cut does not account for a variance in the price. The data shows the bulk of the cut are either ideal or premium. It appears that Carat weight is still the most significant contributing factor to diamond price. I can see why a plot like this can help you make sense of the data. I learned a lot from researching and using these codes. I learned a whole new way of looking at data and how to interpret it. I definitely encourage others to play with various plots to see you can go deeper into the data. 
+
+#Lastly, lets look at the price against the Carat and Color and see what we get.....
+ggplot(aes(x = carat, y = price, color = color), data = diamonds) + 
+  geom_point(alpha = 0.5, size = 1, position = 'jitter') +
+  scale_color_brewer(type = 'div',
+                     guide = guide_legend(title = "Color", 
+                                          reverse = F,
+                                          override.aes = list(alpha = 1, 
+                                                              size = 2))) +  
+  scale_x_continuous(trans = cuberoot_trans(), limits = c(0.2, 5),
+                     breaks = c(0.2, 0.5, 1, 2, 3, 4, 5)) + 
+  scale_y_continuous(trans = log10_trans(), limits = c(350, 30000),
+                     breaks = c(350, 1000, 5000, 10000, 15000, 20000, 25000, 30000)) +
+  ggtitle('Price (log10) by Cube-Root of Carat and Color') #Taken from https://rpubs.com/anthonycerna/diamondspredictions
+#We see the same thing here that we did for clarity. Diamond color does contribute to price. This is something we would expect for those of us who have bought diamonds before. This is consistent with our domain knowledge of diamonds. 
+```
+
+
+```{r}
+
+#Variable selection - Let's validate we were right with our variables....from the above analysis.
+
+#Lets start with the best line fit even though it's "computationally expensive".
+View(diamonds) #Opens up the data set so we can view it.
+
+reg.best <- regsubsets(price~., data = diamonds, nvmax = 19)#Price is the dependent variable
+#The plot will show the Adjust R^2 when using the variables across the bottom
+plot(reg.best, scale = "adjr2", main = "Adjusted R^2")
+summary(reg.best) # basically what I get out of this is the variable categories of carat, cut, color and clarity are important. I excluded x as it doesn't make sense to include this variable. Maybe this value and Depth exhibit some multicolinearity? Or this could be possible due to some sort of preference amongst customers? Or maybe it's just a fluke variable interaction? Maybe jewelers unknowingly end up cutting certain diamonds to exhibit more "sparkle" or "fire"? Maybe this is related to the cut, such as Ideal? Would have to do somoe more exploring to see if this is simply due to chance or if there's a more significant reason involved. I can only speculate for right now...
+
+#Lets try backward selection to see if we get something different
+reg.back <- regsubsets(price~., data = diamonds, method = "backward", nvmax = 20)
+#The plot will show the Adjust R^2 when using the variables across the bottom
+plot(reg.back, scale = "adjr2", main = "Adjusted R^2")
+summary(reg.back)
+#I think this confirms the best line fit recommendations of variables, looks to me like carat, cut, color and clarity are most important in determining the price of a diamond. This is consistent with the above analysis, though the above analysis was more beneficial as we know that cut seems to be the least response or rather add the least to the price of a diamond. This seems to validate our best fit method. Again going with the industry standard four C's and excluding x and depth. Interesting that these showed up again! 
+
+#Finally, let's move on to building a more complex model and then eventually predicting some results
+```
+
+
+
+```{r}
+#Model Creation, on our way to building the best model to predict the price of diamonds based on its contributing attributes.
+#We need to remember that since carat weight is determined by volume in three dimensional space xyz= volume and hence carat weight, then we can use the following equation: lm(log(price) ~ carat^(1/3)). This seems very reasonable since we can see that as the carat weight increases the rarer and rarer a diamond becomes until we don't see it any more, or its so rare it is not depicted in the sample size. Makes perfect sense! The larger the diamond, the exponentially harder it is to find an internally flawless (IF) diamond. 
+
+#I will predict the diamond prices from the model and compare it to that of the same diamond with same specifications from the BlueNile.com website and see what we get. Should be an interesting experiment. 
+
+#Let's create the variables first
+
+diamondsdata <- data.frame(diamonds, header = TRUE)
+
+#Create variables
+carat <- diamonds$carat
+cut <- diamonds$cut
+color <- diamonds$color
+clarity <- diamonds$clarity
+price <- diamonds$price
+
+#this will tells us if we have missing values 
+sum(is.na(carat)) # Does not appear that we have any missing values for carat
+
+#Let's first use the Linear Model based on the example...
+lm1 <- lm(I(log(price)) ~ I(carat^(1/3)), data = diamonds)
+lm2 <- update(lm1, ~ . + carat)
+lm3 <- update(lm2, ~ . + cut)
+lm4 <- update(lm3, ~ . + color)
+lm5 <- update(lm4, ~ . + clarity)
+mtable(lm1, lm2, lm3, lm4, lm5) 
+
+#This was taken from https://rpubs.com/anthonycerna/diamondspredictions This is a really interesting way to break down a model - but I think I may modify it. I will use random selection to see what it does. Wow, the R-squared increases as variables are introduced into the model. This is an excellent way to see how each variable contributes and builds upon each other to get to a really solid model. I like this approach!
+
+summary(lm5)
+
+#First let's split our data in train and test, using say 80% train, 20% test and target/predictor variables
+n_obs = dim(diamonds)[1]
+n_obs
+prop_split = 0.80
+train_index = sample(1:n_obs, round(n_obs * prop_split))
+predictors <- diamonds[c(1:4)] #specifies the predictor variables within the diamonds dataset variables 1-4 which correspond to carat, cut, color and clarity
+head(predictors) #Validates the variable selection by showing only those variables selected - thank god it worked!
+target <- diamonds$price #Selecting price as the output / target of the model
+head(target)
+
+#Lasso also Regression Requires a Matrix vice a Dataframe...
+predictors <- model.matrix(price~., predictors)
+str(predictors)
+head(predictors)
+pred_tr = predictors[train_index,]
+pred_te = predictors[-train_index,]
+target_tr = target[train_index]
+target_te = target[-train_index]
+set.seed(42) #Doing the data science cool thing per class and setting seed to #42.
+
+#
+lasso.diamonds <- glmnet(pred_te,target_te, alpha = 0, nlambda = 100, lambda.min.ratio = .0001)
+
+#here we are going to train our lambda then embed it into our lasso model 
+cv.diamonds.lasso <- cv.glmnet(pred_tr, target_tr, family="gaussian", alpha=1, nlambda=100, lambda.min.ratio=.0001)
+
+coef(cv.diamonds.lasso, s=cv.diamonds.lasso$lambda.1se)
+
+#if we embed it back into another lasso we get the same result
+cv.diamonds.lasso.1 <- glmnet(pred_tr, target_tr, alpha=1,lambda = cv.diamonds.lasso$lambda.1se)
+#same coefs
+
+coef(cv.diamonds.lasso.1)
+
+plot(cv.diamonds.lasso, xvar = 'lambda') #Shows how the lamba is targeted to approach 1. We are decreasing the error within the model. 
+```
+Ok now take the diamonds dataset and run lasso, but also adjust the hyper-parameters including the k-fold number and lambda ratio (alpha) and compare results. 
+
+Now let's add a Elastic Net example, a hyper-parameter that locates the optimal middle point between lasso and ridge will also need to be trained
+
+Elastic net does a better job with highly correlated variables
+```{r}
+
+cv.diamonds.elnet <- cv.glmnet(pred_tr, target_tr, family="gaussian", alpha=.05, nlambda=100, lambda.min.ratio=.0001)
+
+coef(cv.diamonds.elnet, s=cv.diamonds.elnet$lambda.1se)
+
+y_hat_lasso <- predict(cv.diamonds.lasso, pred_te)
+RMSE_Lasso <- sqrt(mean((target_te-y_hat_lasso)^2)) 
+RMSE_Lasso
+
+#Still looks like Lasso performs a bit better, maybe because our variables aren't all that correlated 
+y_hat_elnet <- predict(cv.diamonds.elnet, pred_te)
+RMSE_elnet<- sqrt(mean((target_te-y_hat_elnet)^2)) 
+RMSE_elnet
+
+#I can't go beyond this point to complete the prediction. I have denoted any code with ### i.e. these are the actual code lines that I would have used. 
+
+# Display regression coefficients
+###coef(lasso.diamonds)
+# Make predictions on the test data
+###x.test <- data.frame(pred_te ~., predictors)[,1]#I don't know what I did wrong and I can't move forward to make predictions. I went wrong somewhere. 
+###probabilities <- model %>% predict(newx = x.test)
+###predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy
+###observed.classes <- test.data$price
+###mean(predicted.classes == observed.classes)
+#fine the optimal value of lambda
+###set.seed(123)
+###cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial")
+###plot(cv.lasso)
+
+# Final model with lambda.min
+###lasso.model <- glmnet(x, y, alpha = 1, family = "binomial",
+ ###                     lambda = cv.lasso$lambda.min)
+# Make prediction on test data
+###x.test <- model.matrix(price ~., test.data)[,-1]
+###probabilities <- lasso.model %>% predict(newx = x.test)
+###predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy
+###observed.classes <- test.data$price
+###mean(predicted.classes == observed.classes)
+
+# Final model with lambda.1se
+###lasso.model <- glmnet(x, y, alpha = 1, family = "binomial",
+###                      lambda = cv.lasso$lambda.1se)
+# Make prediction on test data
+###x.test <- model.matrix(price ~., test.data)[,-1]
+###probabilities <- lasso.model %>% predict(newx = x.test)
+###predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy rate
+###observed.classes <- test.data$price
+###mean(predicted.classes == observed.classes)
+
+# Fit the model
+###full.model <- glm(price ~., data = train.data, family = binomial)
+# Make predictions
+###probabilities <- full.model %>% predict(test.data, type = "response")
+###predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy
+###observed.classes <- test.data$price
+###mean(predicted.classes == observed.classes)
+```
+
+
+```{r}
+
+#Let's do some predictions with our models to see how we did....
+
+#Our Example Diamond from BlueNile: 
+
+#1-- Round, Carat: 1.10, Cut: Astor by Blue Nile Ideal, Color: F, Clarity: VVS2, Price: $11,212     Taken from: https://www.bluenile.com/build-your-own-ring/diamond-details/LD09800963?refTab=DIAMONDS&track=viewDiamondDetails&action=newTab
+
+#2-- Round, Carat: 0.90, Cut: Very Good, Color: F, Clarity: VS2, Price: $4,188      Taken from: https://www.bluenile.com/build-your-own-ring/diamond-details/LD10490866?refTab=DIAMONDS&track=viewDiamondDetails&action=newTab
+
+
+#Linear Model First......
+
+#1--Blue Nile Astor Diamond
+BlueNileDiamondLM = data.frame(carat = 1.10, cut = "Ideal",
+                         color = "F", clarity="VVS2")
+# data.Frame creates a data frame, we created a dataframe with one value, BlueNileDiamondLM
+modelEstimate = predict(lm5, newdata = BlueNileDiamondLM,
+                        interval="prediction", level = .95)
+exp(modelEstimate) # this will give us the actual price because our model outputs log 10.
+
+#The output is based on a 95% chance that the diamond will fall within the price range. It's off by a little bit, but in all fairness, I did pick a specific branding diamond, so maybe the additional $100 is due to branding. Let's try a second example without the Blue Nile Astor branding...
+
+#2--Blue Nile Diamond
+
+BlueNileDiamondLM1 = data.frame(carat = 0.90, cut = "Very Good",
+                         color = "F", clarity="VS2")
+# data.Frame creates a data frame, we created a dataframe with one value, BlueNileDiamondLM1
+modelEstimate1 = predict(lm5, newdata = BlueNileDiamondLM1,
+                        interval="prediction", level = .95)
+exp(modelEstimate1) # this will give us the actual price because our model outputs log 10.
+
+#The output is based on a 95% chance that the diamond will fall within the price range. It's within the range between the fit and the lwr prediction. So it's without a doubt within the bounds of the model. It's a good prediction and fit, so the Astor Diamonds may be a bit more pricey due to the branding, but does not seem like that much over priced. Would have to perform some analysis of this to be sure, but it certaintly looks to be the case. I can't wait to see what the other models do....
+```
+
+```{r}
+
+#I can't get this to work. I have errors in my code and I don't know how to correct it. I have denoted all code lines that I would have used as ### i.e. actual code lines. 
+
+#Lasso Logistic Regression Model prediction...
+
+###table(diamonds$price)
+###quantile(as.numeric(diamonds$price))
+###boxplot(as.numeric(diamonds$price)) #This box plot shows the price distribution based on quantile. 50% (lower bound) of the data falls from $2,401 and below to $326. 50% (upper bound) falls above $2,401 up to $18,823. Those on the lower bound will be to a 0 and those on the upper bound will be set to a 1. 
+###data("diamonds") # Lines 550-580 taken from http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/.
+###diamonds <- na.omit(diamonds)
+###sample_n(diamonds, 10) #Inspecting the data
+###set.seed(42)
+###training.samples <- diamonds$price %>%
+###  createDataPartition(p = 0.8, list = FALSE)
+###train.data <- diamonds[training.samples, ]
+###test.data <- diamonds[-training.samples, ]
+#Creates moel matrix of predictors and converts categorical predictors to the appropriate dummy variables required for glmnet function use
+###x <- model.matrix(price~carat + cut + color +clarity, train.data)[,-1]#Dummy code categorical predictor variables
+###y <- ifelse(train.data$price == "pos", 0, 1)#Convert the outcome to a numberical variable
+
+#Create the penalized logistic regression model
+###model = glmnet(x, y, family = "binomial", alpha = 1, lambda = NULL) # I get an error here that I can't fix 
+#I can't move beyond this point due to the above model error and I don't know what I did incorrectly so I cannot fix it. 
+
+#Sample code that would hopefully get me to the final model prediction, though I don't know because I can't run it to completion. 
+ #Find the best lambda using cross-validation
+###set.seed(123) 
+###cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial")
+# Fit the final model on the training data
+###model <- glmnet(x, y, alpha = 1, family = "binomial",
+###                lambda = cv.lasso$lambda.min)
+# Display regression coefficients
+###coef(model)
+# Make predictions on the test data
+###x.test <- model.matrix(price ~., test.data)[,-1]
+###probabilities <- model %>% predict(newx = x.test)
+###predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy
+###observed.classes <- test.data$price
+###mean(predicted.classes == observed.classes)
+#fine the optimal value of lambda
+###set.seed(123)
+###cv.lasso <- cv.glmnet(x, y, alpha = 1, family = "binomial")
+###plot(cv.lasso)
+
+# Final model with lambda.min
+###lasso.model <- glmnet(x, y, alpha = 1, family = "binomial",
+###                      lambda = cv.lasso$lambda.min)
+# Make prediction on test data
+###x.test <- model.matrix(price ~., test.data)[,-1]
+###probabilities <- lasso.model %>% predict(newx = x.test)
+###predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy
+###observed.classes <- test.data$price
+###mean(predicted.classes == observed.classes)
+
+# Final model with lambda.1se
+###lasso.model <- glmnet(x, y, alpha = 1, family = "binomial",
+###                      lambda = cv.lasso$lambda.1se)
+# Make prediction on test data
+###x.test <- model.matrix(price ~., test.data)[,-1]
+###probabilities <- lasso.model %>% predict(newx = x.test)
+###predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy rate
+###observed.classes <- test.data$price
+###mean(predicted.classes == observed.classes)
+
+# Fit the model
+###full.model <- glm(price ~., data = train.data, family = binomial)
+# Make predictions
+###probabilities <- full.model %>% predict(test.data, type = "response")
+###predicted.classes <- ifelse(probabilities > 0.5, "pos", "neg")
+# Model accuracy
+###observed.classes <- test.data$price
+###mean(predicted.classes == observed.classes)
+```
+
+
+```{r}
+#Despite not being able to complete this project with the prediction models, I still learned a lot. I wish I was able to get this to completion, but unfortunately I cannot figure this out in r. Hopefully someone can help in finalizing this. 
+```
+
